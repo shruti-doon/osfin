@@ -23,15 +23,13 @@ class TestFindUniqueAmountMatches:
         bank_df, reg_df = data
         matches = find_unique_amount_matches(bank_df, reg_df)
         assert len(matches) > 0
-        # Should find a significant portion of unique amounts
-        assert len(matches) > 100  # At least ~100 unique amount matches
+        assert len(matches) > 100
 
     def test_high_precision(self, data):
         bank_df, reg_df = data
         matches = find_unique_amount_matches(bank_df, reg_df)
         correct = sum(1 for m in matches if m.is_correct)
         precision = correct / len(matches) if matches else 0
-        # Unique amount matching should be very precise
         assert precision > 0.85
 
     def test_confidence_scores(self, data):

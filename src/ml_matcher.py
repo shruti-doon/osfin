@@ -120,7 +120,6 @@ class HybridMatcher:
         if n_bank == 0 or n_reg == 0:
             return np.zeros((max(n_bank, 1), max(n_reg, 1)))
 
-        # Co-occurrence counts
         cooccur = np.zeros((n_bank, n_reg))
         bank_counts = np.zeros(n_bank)
         reg_counts = np.zeros(n_reg)
@@ -153,7 +152,6 @@ class HybridMatcher:
                     ri = self._reg_vocab[rt]
                     reg_counts[ri] += 1
 
-        # Compute PMI
         pmi = np.zeros((n_bank, n_reg))
         for bi in range(n_bank):
             for ri in range(n_reg):
@@ -162,7 +160,7 @@ class HybridMatcher:
                     p_bank = bank_counts[bi] / n_pairs
                     p_reg = reg_counts[ri] / n_pairs
                     pmi_val = np.log2(p_joint / (p_bank * p_reg + 1e-10) + 1e-10)
-                    pmi[bi, ri] = max(pmi_val, 0)  # Positive PMI only
+                    pmi[bi, ri] = max(pmi_val, 0)
 
         return pmi
 
@@ -190,7 +188,6 @@ class HybridMatcher:
                 if token in vocab:
                     matrix[i, vocab[token]] = 1.0
 
-        # L2 normalize
         norms = np.linalg.norm(matrix, axis=1, keepdims=True)
         norms[norms == 0] = 1
         matrix = matrix / norms
@@ -218,7 +215,6 @@ class HybridMatcher:
                 embeddings = embedder.encode(normalized, show_progress_bar=False)
                 return embeddings
 
-        # Fallback: simple character n-gram approach
         from sklearn.feature_extraction.text import TfidfVectorizer
         normalized = [normalize_description(d) for d in descriptions]
         if vectorizer is not None:
@@ -239,7 +235,6 @@ class HybridMatcher:
         """
         features = df[['amount_log', 'day_sin', 'day_cos', 'type_num']].values.astype(float)
 
-        # Normalize each feature to [0, 1]
         for col in range(features.shape[1]):
             col_min = features[:, col].min()
             col_max = features[:, col].max()
@@ -267,26 +262,17 @@ class HybridMatcher:
         n_bank = len(bank_df)
         n_reg = len(register_df)
 
-        # --- 1. SVD similarity ---
-        # Build term vectors
         bank_terms = self._build_term_vectors(bank_df, self._bank_vocab, is_bank=True)
         reg_terms = self._build_term_vectors(register_df, self._reg_vocab, is_bank=False)
 
-        # Apply alignment: project register terms into bank term space
         if self._alignment_matrix is not None and self._alignment_matrix.shape[0] > 0:
-            # Transform: bank_terms stays as-is, reg_terms projected through alignment
-            # alignment is (bank_vocab, reg_vocab), reg_terms is (n_reg, reg_vocab)
-            # projected = reg_terms @ alignment.T = (n_reg, bank_vocab)
             reg_projected = reg_terms @ self._alignment_matrix.T
 
-            # Combine
             combined_bank = bank_terms
             combined_reg = reg_projected
 
-            # SVD reduction
             n_components = min(self.svd_components, combined_bank.shape[1] - 1, combined_reg.shape[1] - 1)
             if n_components > 0:
-                # Stack and fit SVD on all data
                 all_data = np.vstack([combined_bank, combined_reg])
                 n_components = min(n_components, all_data.shape[1] - 1, all_data.shape[0] - 1)
                 if n_components > 0:
@@ -295,7 +281,6 @@ class HybridMatcher:
                     bank_svd = all_projected[:n_bank]
                     reg_svd = all_projected[n_bank:]
 
-                    # Cosine similarity
                     svd_sim = 1 - cdist(bank_svd, reg_svd, metric='cosine')
                     svd_sim = np.nan_to_num(svd_sim, nan=0.0)
                 else:
@@ -305,7 +290,6 @@ class HybridMatcher:
         else:
             svd_sim = np.zeros((n_bank, n_reg))
 
-        # --- 2. Embedding similarity ---
         bank_descs = bank_df['description'].tolist()
         reg_descs = register_df['description'].tolist()
 
@@ -313,7 +297,6 @@ class HybridMatcher:
             bank_emb = self._compute_embedding_features(bank_descs)
             reg_emb = self._compute_embedding_features(reg_descs)
         else:
-            # TF-IDF fallback: fit on combined corpus for consistent dimensionality
             from sklearn.feature_extraction.text import TfidfVectorizer
             all_descs = [normalize_description(d) for d in bank_descs + reg_descs]
             vectorizer = TfidfVectorizer(
@@ -328,12 +311,10 @@ class HybridMatcher:
         emb_sim = 1 - cdist(bank_emb, reg_emb, metric='cosine')
         emb_sim = np.nan_to_num(emb_sim, nan=0.0)
 
-        # --- 3. Numerical similarity ---
         bank_num = self._compute_numerical_features(bank_df)
         reg_num = self._compute_numerical_features(register_df)
 
         num_sim = 1 - cdist(bank_num, reg_num, metric='euclidean')
-        # Normalize to [0, 1]
         num_min = num_sim.min()
         num_max = num_sim.max()
         if num_max > num_min:
@@ -341,21 +322,17 @@ class HybridMatcher:
         else:
             num_sim = np.zeros_like(num_sim)
 
-        # --- 4. Amount match bonus ---
-        # Strong boost for same-amount pairs
         bank_amounts = bank_df['amount'].values.reshape(-1, 1)
         reg_amounts = register_df['amount'].values.reshape(1, -1)
         amount_match = (np.abs(bank_amounts - reg_amounts) < 0.01).astype(float)
 
-        # --- Ensemble ---
         similarity = (
             self.svd_weight * svd_sim +
             self.embedding_weight * emb_sim +
             self.numerical_weight * num_sim +
-            0.3 * amount_match  # bonus for exact amount matches
+            0.3 * amount_match
         )
 
-        # Normalize to [0, 1]
         sim_min = similarity.min()
         sim_max = similarity.max()
         if sim_max > sim_min:
@@ -394,40 +371,32 @@ class HybridMatcher:
         current_matched_reg = set(matched_reg_ids)
 
         for iteration in range(self.max_iterations):
-            # Filter to unmatched transactions
             bank_remaining = bank_df[~bank_df['transaction_id'].isin(current_matched_bank)].reset_index(drop=True)
             reg_remaining = register_df[~register_df['transaction_id'].isin(current_matched_reg)].reset_index(drop=True)
 
             if len(bank_remaining) == 0 or len(reg_remaining) == 0:
                 break
 
-            # Build vocabulary from ALL data (to capture global patterns)
             self._bank_vocab, self._reg_vocab = self._build_vocabulary(bank_df, register_df)
 
-            # Compute PMI alignment from current seed matches
             self._alignment_matrix = self._compute_pmi_alignment(
                 current_seeds, bank_df, register_df
             )
 
-            # Compute similarity matrix for remaining transactions
             similarity = self._compute_similarity_matrix(
                 bank_remaining, reg_remaining, current_seeds
             )
 
-            # Hungarian algorithm for optimal 1-to-1 matching
             n_bank = len(bank_remaining)
             n_reg = len(reg_remaining)
 
-            # Convert similarity to cost (for minimization)
             cost_matrix = 1.0 - similarity
 
-            # Handle non-square matrices
             if n_bank <= n_reg:
                 row_ind, col_ind = linear_sum_assignment(cost_matrix)
             else:
                 col_ind, row_ind = linear_sum_assignment(cost_matrix.T)
 
-            # Create match results for this iteration
             iteration_matches = []
             for r, c in zip(row_ind, col_ind):
                 if r < n_bank and c < n_reg:
@@ -448,11 +417,9 @@ class HybridMatcher:
                     )
                     iteration_matches.append(match)
 
-            # Separate high and low confidence matches
             high_conf = [m for m in iteration_matches if m.confidence >= self.high_confidence_threshold]
             low_conf = [m for m in iteration_matches if m.confidence < self.high_confidence_threshold]
 
-            # Add high-confidence matches to the seed corpus
             for m in high_conf:
                 current_matched_bank.add(m.bank_id)
                 current_matched_reg.add(m.register_id)
@@ -460,17 +427,14 @@ class HybridMatcher:
 
             all_ml_matches.extend(high_conf)
 
-            # If no high-confidence matches found, add all remaining and stop
             if not high_conf:
                 all_ml_matches.extend(low_conf)
                 break
 
-        # Final pass: match any remaining transactions
         final_bank_remaining = bank_df[~bank_df['transaction_id'].isin(current_matched_bank)].reset_index(drop=True)
         final_reg_remaining = register_df[~register_df['transaction_id'].isin(current_matched_reg)].reset_index(drop=True)
 
         if len(final_bank_remaining) > 0 and len(final_reg_remaining) > 0:
-            # Rebuild with expanded corpus
             self._bank_vocab, self._reg_vocab = self._build_vocabulary(bank_df, register_df)
             self._alignment_matrix = self._compute_pmi_alignment(
                 current_seeds, bank_df, register_df

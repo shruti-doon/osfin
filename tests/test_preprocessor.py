@@ -51,7 +51,6 @@ class TestMapToCategory:
         assert map_to_category("SPOTIFY") == "subscription"
 
     def test_online_purchase(self):
-        # AMAZON.COM maps to 'amazon' via merchant alias
         category = map_to_category("AMAZON.COM")
         assert category in ("amazon", "online purchase", "grocery")
         assert map_to_category("ONLINE ORDER #4005") == "online purchase"

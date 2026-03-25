@@ -28,7 +28,7 @@ class TestHybridMatcher:
         bank_df, reg_df, unique_matches = pipeline_data
         matcher = HybridMatcher(
             max_iterations=1,
-            use_sentence_transformers=False,  # Use TF-IDF for speed
+            use_sentence_transformers=False,
         )
         ml_matches = matcher.match(bank_df, reg_df, unique_matches)
         assert len(ml_matches) > 0
@@ -69,5 +69,4 @@ class TestHybridMatcher:
 
         all_matches = unique_matches + ml_matches
         matched_bank_ids = {m.bank_id for m in all_matches}
-        # Should cover most, if not all
-        assert len(matched_bank_ids) >= 280  # Allow some slack
+        assert len(matched_bank_ids) >= 280

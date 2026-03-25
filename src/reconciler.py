@@ -80,8 +80,7 @@ class ReconciliationPipeline:
         )
 
         self.ml_matches = matcher.match(
-            self.bank_df,
-            self.register_df,
+            self.bank_df, self.register_df,
             seed_matches=self.unique_matches,
             matched_bank_ids=matched_bank_ids,
             matched_reg_ids=matched_reg_ids,

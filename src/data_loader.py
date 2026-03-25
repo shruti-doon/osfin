@@ -15,11 +15,9 @@ def load_bank_statements(filepath: str) -> pd.DataFrame:
     df['date'] = pd.to_datetime(df['date'])
     df['amount'] = df['amount'].astype(float).round(2)
 
-    # Normalize type: DEBIT/CREDIT -> DR/CR
     type_map = {'DEBIT': 'DR', 'CREDIT': 'CR', 'debit': 'DR', 'credit': 'CR'}
     df['type_normalized'] = df['type'].map(type_map).fillna(df['type'].str.upper())
 
-    # Signed amount: negative for debits
     df['signed_amount'] = df.apply(
         lambda r: -r['amount'] if r['type_normalized'] == 'DR' else r['amount'],
         axis=1
@@ -39,16 +37,13 @@ def load_check_register(filepath: str) -> pd.DataFrame:
     df['date'] = pd.to_datetime(df['date'])
     df['amount'] = df['amount'].astype(float).round(2)
 
-    # Type is already DR/CR
     df['type_normalized'] = df['type'].str.upper()
 
-    # Signed amount: negative for debits
     df['signed_amount'] = df.apply(
         lambda r: -r['amount'] if r['type_normalized'] == 'DR' else r['amount'],
         axis=1
     )
 
-    # Fill NaN notes
     df['notes'] = df['notes'].fillna('')
     df['source'] = 'register'
     return df

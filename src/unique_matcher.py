@@ -41,7 +41,6 @@ def find_unique_amount_matches(
     """
     matches = []
 
-    # Count occurrences of each amount in each dataset
     bank_amounts = bank_df.groupby('amount').agg(
         count=('transaction_id', 'size'),
         ids=('transaction_id', list),
@@ -56,11 +55,9 @@ def find_unique_amount_matches(
         types=('type_normalized', list),
     ).reset_index()
 
-    # Find amounts that appear exactly once in both
     bank_unique = bank_amounts[bank_amounts['count'] == 1]
     reg_unique = reg_amounts[reg_amounts['count'] == 1]
 
-    # Inner join on amount to find matches
     merged = bank_unique.merge(
         reg_unique,
         on='amount',
@@ -75,11 +72,9 @@ def find_unique_amount_matches(
         bank_type = row['types_bank'][0]
         reg_type = row['types_reg'][0]
 
-        # Compute confidence
         confidence = 1.0
         flags = []
 
-        # Date difference penalty
         date_diff = abs((bank_date - reg_date).days)
         if date_diff > date_penalty_threshold:
             extra_days = date_diff - date_penalty_threshold
@@ -87,7 +82,6 @@ def find_unique_amount_matches(
             confidence -= penalty
             flags.append(f'date_diff={date_diff}d')
 
-        # Type mismatch penalty
         if bank_type != reg_type:
             confidence -= type_mismatch_penalty
             flags.append(f'type_mismatch:{bank_type}≠{reg_type}')
@@ -119,11 +113,9 @@ def find_same_amount_groups(
     Returns:
         List of (bank_group_df, register_group_df) tuples
     """
-    # Filter to unmatched only
     bank_remaining = bank_df[~bank_df['transaction_id'].isin(matched_bank_ids)]
     reg_remaining = register_df[~register_df['transaction_id'].isin(matched_reg_ids)]
 
-    # Group by amount
     groups = []
     bank_by_amount = bank_remaining.groupby('amount')
     reg_by_amount = reg_remaining.groupby('amount')

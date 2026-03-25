@@ -39,8 +39,8 @@ class TestComputeMetrics:
 
     def test_partial_correct(self):
         matches = [
-            make_match(1, 1),  # correct
-            make_match(2, 3),  # incorrect
+            make_match(1, 1),
+            make_match(2, 3),
         ]
         metrics = compute_metrics(matches)
         assert metrics['precision'] == 0.5
@@ -59,7 +59,7 @@ class TestComputeMetricsByPhase:
         matches = [
             make_match(1, 1, phase='unique_amount'),
             make_match(2, 2, phase='ml'),
-            make_match(3, 4, phase='ml'),  # incorrect
+            make_match(3, 4, phase='ml'),
         ]
         by_phase = compute_metrics_by_phase(matches)
         assert 'unique_amount' in by_phase
@@ -73,7 +73,7 @@ class TestComputeMetricsByConfidence:
         matches = [
             make_match(1, 1, confidence=0.95),
             make_match(2, 2, confidence=0.75),
-            make_match(3, 4, confidence=0.2),  # incorrect, low conf
+            make_match(3, 4, confidence=0.2),
         ]
         by_conf = compute_metrics_by_confidence(matches)
         assert len(by_conf) > 0

@@ -11,7 +11,7 @@ class MatchResult:
     bank_id: str
     register_id: str
     confidence: float
-    match_phase: str  # 'unique_amount' or 'ml'
+    match_phase: str
     flags: List[str] = field(default_factory=list)
 
     @property
@@ -40,16 +40,12 @@ def normalize_text(text: str) -> str:
     if not isinstance(text, str):
         return ""
     text = text.lower().strip()
-    # Remove hash/pound numbers (e.g., '#1775')
     text = re.sub(r'#\d+', '', text)
-    # Remove standalone numbers
     text = re.sub(r'\b\d+\b', '', text)
-    # Collapse whitespace
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
 
-# Common merchant name mappings for normalization
 MERCHANT_ALIASES = {
     'aazon.com': 'amazon',
     'amazon.com': 'amazon',
@@ -102,7 +98,6 @@ def categorize_description(text: str) -> str:
         if pattern in text_lower:
             return category
 
-    # Fallback heuristics
     if 'misc transaction' in text_lower:
         return 'miscellaneous'
     if any(kw in text_lower for kw in ['online', 'amazon', 'ebay', 'order']):
